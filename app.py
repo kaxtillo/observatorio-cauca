@@ -8,7 +8,7 @@ from folium.plugins import HeatMap
 # 1. CONFIGURACIÓN DE LA PÁGINA
 st.set_page_config(page_title="Observatorio Epidemiológico Cauca", layout="wide", page_icon="🐄")
 
-st.title("🐄 Observatorio de Vigilancia Epidemiológica - Cauca")
+st.title("🐄 Observatorio de Vigilancia Vacunación - Cauca - 2022")
 st.markdown("Análisis de datos de vacunación bovina - Ciclo I 2022")
 
 # 2. CARGA DE DATOS (Con caché para velocidad)
@@ -70,7 +70,7 @@ with tab1:
         # Mapa Folium
         m = folium.Map(location=[df_filtered['LATITUD'].mean(), df_filtered['LONGITUD'].mean()], zoom_start=9)
         heat_data = df_filtered[['LATITUD', 'LONGITUD']].values.tolist()
-        HeatMap(heat_data, radius=15).add_to(m)
+        HeatMap(heat_data, radius=10).add_to(m)
         st_folium(m, height=500, use_container_width=True)
         
     with col_map2:
@@ -106,7 +106,7 @@ with tab3:
         st.plotly_chart(fig_error, use_container_width=True)
         
         with st.expander("Ver tabla de datos anómalos"):
-            st.dataframe(df_error[['MUNICIPIO', 'VEREDA', 'GANADERO', 'IDENTIFICACION_GANADERO']])
+            st.dataframe(df_error[['MUNICIPIO', 'VEREDA', 'GANADERO', 'NOMBRE_PREDIO']])
 
 # Pie de página
 st.markdown("---")
