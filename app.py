@@ -85,12 +85,11 @@ with tab1:
         st.plotly_chart(fig_scatter, use_container_width=True)
 
 with tab2:
-    # NOTA: Mira cómo esta línea tiene 4 espacios de margen a la izquierda
     st.header("Análisis de la Estructura del Hato Ganadero")
     
     st.subheader("1. Pirámide Poblacional Bovina (Edad y Sexo)")
     
-    # --- DEFINICIÓN DE MAPAS DE COLUMNAS ---
+    # --- 1. DEFINICIÓN DE MAPAS DE COLUMNAS ---
     mapa_hembras = {
         'AFTOSA_BOVINOS_HEMBRAS_MENORES_A_3_MESES': '0-3 meses',
         'AFTOSA_BOVINOS_HEMBRAS_MENORES_DE_3_A_8_MESES': '3-8 meses',
@@ -111,12 +110,24 @@ with tab2:
         'AFTOSA_BOVINOS_MACHOS_MAYORES_A_3_AÑOS': '> 3 años'
     }
 
-    # Listas para construir el DataFrame paso a paso
+    # --- 2. LISTA MAESTRA DE ORDENAMIENTO (De menor a mayor edad) ---
+    # Esta lista define el orden exacto en que aparecerán las barras
+    orden_cronologico = [
+        '0-3 meses', '< 3 meses',
+        '3-8 meses',
+        '8-12 meses', 'Terneros < 1 año',
+        '1-2 años',
+        '2-3 años',
+        '3-5 años', '> 3 años',
+        '> 5 años'
+    ]
+
+    # Listas para construir el DataFrame
     datos_edad = []
     datos_sexo = []
     datos_poblacion = []
 
-    # 1. Procesar Hembras
+    # Procesar Hembras
     for col_name, etiqueta in mapa_hembras.items():
         if col_name in df_filtered.columns:
             total = df_filtered[col_name].sum()
@@ -124,7 +135,7 @@ with tab2:
             datos_sexo.append('Hembra')
             datos_poblacion.append(total)
 
-    # 2. Procesar Machos
+    # Procesar Machos
     for col_name, etiqueta in mapa_machos.items():
         if col_name in df_filtered.columns:
             total = df_filtered[col_name].sum()
@@ -133,46 +144,63 @@ with tab2:
                 datos_sexo.append('Macho')
                 datos_poblacion.append(total)
 
-    # Crear el DataFrame con los datos sincronizados
+    # Crear el DataFrame
     piramide_df = pd.DataFrame({
         'Edad': datos_edad,
         'Sexo': datos_sexo,
         'Poblacion': datos_poblacion
     })
+
+    # --- 3. APLICAR EL ORDENAMIENTO ---
+    # Convertimos la columna 'Edad' a un tipo Categórico con orden definido
+    # Filtramos la lista maestra para usar solo las categorías que existen en los datos actuales
+    categorias_existentes = [x for x in orden_cronologico if x in piramide_df['Edad'].unique()]
     
-    # Asignar valores negativos a Machos para el efecto visual
-    # Usamos .copy() para evitar advertencias de pandas
-    piramide_df.loc[piramide_df['Sexo'] == 'Macho', 'Poblacion'] *= -1
+    piramide_df['Edad'] = pd.Categorical(
+        piramide_df['Edad'], 
+        categories=categorias_existentes, 
+        ordered=True
+    )
     
-    # Generar Pirámide
+    # Ordenamos el DataFrame según esa categoría
+    piramide_df = piramide_df.sort_values('Edad')
+
+    # Asignar valores negativos a Machos
+    # Usamos .copy() explícito para evitar Warnings de Pandas
+    piramide_df_plot = piramide_df.copy()
+    piramide_df_plot.loc[piramide_df_plot['Sexo'] == 'Macho', 'Poblacion'] *= -1
+    
+    # --- 4. GRAFICAR ---
     fig_piramide = go.Figure()
     
     # Trazo Hembras
-    df_h = piramide_df[piramide_df['Sexo'] == 'Hembra']
+    df_h = piramide_df_plot[piramide_df_plot['Sexo'] == 'Hembra']
     fig_piramide.add_trace(go.Bar(
         y=df_h['Edad'], x=df_h['Poblacion'],
         orientation='h', name='Hembras', marker_color='#E91E63'
     ))
     
     # Trazo Machos
-    df_m = piramide_df[piramide_df['Sexo'] == 'Macho']
+    df_m = piramide_df_plot[piramide_df_plot['Sexo'] == 'Macho']
     fig_piramide.add_trace(go.Bar(
         y=df_m['Edad'], x=df_m['Poblacion'],
         orientation='h', name='Machos', marker_color='#2196F3'
     ))
     
-    # Layout
-    max_val = piramide_df['Poblacion'].abs().max()
-    if pd.isna(max_val) or max_val == 0: max_val = 100 
+    # Calcular máximo para centrar el gráfico
+    max_val = piramide_df_plot['Poblacion'].abs().max()
+    if pd.isna(max_val) or max_val == 0: max_val = 100
 
     fig_piramide.update_layout(
-        title='Pirámide de Edad y Sexo',
+        title='Pirámide de Edad y Sexo (Ordenada por edad)',
         barmode='relative',
         xaxis=dict(
             title='Población',
             range=[-max_val*1.1, max_val*1.1] 
         ),
-        height=500,
+        # Esto asegura que Plotly respete el orden categórico que definimos
+        yaxis=dict(type='category'),
+        height=600,
         bargap=0.1
     )
     st.plotly_chart(fig_piramide, use_container_width=True)
