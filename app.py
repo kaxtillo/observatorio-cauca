@@ -84,16 +84,13 @@ with tab1:
         fig_scatter.update_layout(map_style="open-street-map")
         st.plotly_chart(fig_scatter, use_container_width=True)
 
-
-    with tab2:
+with tab2:
+    # NOTA: Mira cómo esta línea tiene 4 espacios de margen a la izquierda
     st.header("Análisis de la Estructura del Hato Ganadero")
     
     st.subheader("1. Pirámide Poblacional Bovina (Edad y Sexo)")
     
-    # --- CORRECCIÓN ROBUSTA ---
-    # En lugar de adivinar columnas, definimos un MAPA exacto de qué columnas usar.
-    # Clave = Nombre exacto en el CSV, Valor = Etiqueta para el gráfico
-    
+    # --- DEFINICIÓN DE MAPAS DE COLUMNAS ---
     mapa_hembras = {
         'AFTOSA_BOVINOS_HEMBRAS_MENORES_A_3_MESES': '0-3 meses',
         'AFTOSA_BOVINOS_HEMBRAS_MENORES_DE_3_A_8_MESES': '3-8 meses',
@@ -105,17 +102,16 @@ with tab1:
     }
 
     mapa_machos = {
-        # Agrupamos los machos jóvenes si existen columnas separadas, o usamos la de terneros si existe
         'AFTOSA_BOVINOS_MACHOS_MENORES_A_3_MESES': '< 3 meses', 
         'AFTOSA_BOVINOS_MACHOS_3_HASTA_8_MESES': '3-8 meses',
         'AFTOSA_BOVINOS_MACHOS_8_HASTA_12_MESES': '8-12 meses',
-        'AFTOSA_BOVINOS_TERNEROS_MENORES_A_1_AÑO': 'Terneros < 1 año', # A veces aparece esta
+        'AFTOSA_BOVINOS_TERNEROS_MENORES_A_1_AÑO': 'Terneros < 1 año',
         'AFTOSA_BOVINOS_MACHOS_1___2_AÑOS': '1-2 años',
         'AFTOSA_BOVINOS_MACHOS_2___3_AÑOS': '2-3 años',
         'AFTOSA_BOVINOS_MACHOS_MAYORES_A_3_AÑOS': '> 3 años'
     }
 
-    # Listas para construir el DataFrame paso a paso (garantiza misma longitud)
+    # Listas para construir el DataFrame paso a paso
     datos_edad = []
     datos_sexo = []
     datos_poblacion = []
@@ -132,7 +128,6 @@ with tab1:
     for col_name, etiqueta in mapa_machos.items():
         if col_name in df_filtered.columns:
             total = df_filtered[col_name].sum()
-            # Si el total es > 0, lo agregamos (así evitamos columnas vacías que rompen el gráfico)
             if total >= 0: 
                 datos_edad.append(etiqueta)
                 datos_sexo.append('Macho')
@@ -146,6 +141,7 @@ with tab1:
     })
     
     # Asignar valores negativos a Machos para el efecto visual
+    # Usamos .copy() para evitar advertencias de pandas
     piramide_df.loc[piramide_df['Sexo'] == 'Macho', 'Poblacion'] *= -1
     
     # Generar Pirámide
@@ -167,14 +163,13 @@ with tab1:
     
     # Layout
     max_val = piramide_df['Poblacion'].abs().max()
-    if pd.isna(max_val) or max_val == 0: max_val = 100 # Evitar error si no hay datos
+    if pd.isna(max_val) or max_val == 0: max_val = 100 
 
     fig_piramide.update_layout(
         title='Pirámide de Edad y Sexo',
         barmode='relative',
         xaxis=dict(
             title='Población',
-            # Rango dinámico simétrico
             range=[-max_val*1.1, max_val*1.1] 
         ),
         height=500,
@@ -199,6 +194,7 @@ with tab1:
     )
     fig_bar.update_layout(yaxis={'categoryorder':'total ascending'}, height=600)
     st.plotly_chart(fig_bar, use_container_width=True)
+    
 with tab3:
     st.header("Vigilancia: Predios con Cero Bovinos")
     # Filtrar errores
