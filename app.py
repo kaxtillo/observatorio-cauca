@@ -84,7 +84,7 @@ with tab1:
         fig_scatter.update_layout(map_style="open-street-map")
         st.plotly_chart(fig_scatter, use_container_width=True)
 
-with tab2:
+
     with tab2:
     st.header("Análisis de la Estructura del Hato Ganadero")
     
