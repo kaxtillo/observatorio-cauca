@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 from streamlit_folium import st_folium
 import folium
 from folium.plugins import HeatMap
@@ -84,11 +85,98 @@ with tab1:
         st.plotly_chart(fig_scatter, use_container_width=True)
 
 with tab2:
-    st.header("Estructura del Hato Ganadero")
+    st.header("Análisis de la Estructura del Hato Ganadero")
     
-    # Gráfico de Barras Municipios
-    top_munis = df_filtered.groupby('MUNICIPIO')['TOTAL_BOVINOS'].sum().sort_values(ascending=False).head(15)
-    fig_bar = px.bar(top_munis, orientation='h', title="Top Municipios por Población")
+    st.subheader("1. Pirámide Poblacional Bovina (Edad y Sexo)")
+    
+    # 1. Preparación de datos para la Pirámide
+    
+    # Definir las columnas de población y las etiquetas de edad
+    cols_hemb = [c for c in df_filtered.columns if 'AFTOSA_BOVINOS_HEMBRAS' in c]
+    cols_mach = [c for c in df_filtered.columns if 'AFTOSA_BOVINOS_MACHOS' in c and '_MENORES_A_3_MESES' not in c and '_3_HASTA_8_MESES' not in c and '_8_HASTA_12_MESES' not in c]
+    
+    # Etiquetas de Edad y Reordenamiento
+    age_labels = [
+        "Menores a 3 meses (H)", "3 a 8 meses (H)", "8 a 12 meses (H)",
+        "1 a 2 años (H)", "2 a 3 años (H)", "3 a 5 años (H)", "Mayores a 5 años (H)",
+        "Terneros < 1 año (M)", "1 a 2 años (M)", "2 a 3 años (M)", "Mayores a 3 años (M)"
+    ]
+    
+    # La columna 'TOTAL_BOVINOS_MACHOS_MENORES_A_1_AÑO' es una suma para el lado macho.
+    # En este dataset en particular, las etiquetas de macho son más simplificadas,
+    # por lo que las agruparemos para coincidir con el número de categorías del lado hembra.
+    
+    # Crear un DataFrame simplificado para la pirámide
+    data_hemb = df_filtered[cols_hemb].sum()
+    data_mach = df_filtered[cols_mach].sum()
+    
+    # Reorganizar los datos en un formato de pirámide
+    piramide_df = pd.DataFrame({
+        'Edad': [
+            "0-3 meses", "3-8 meses", "8-12 meses", 
+            "1-2 años", "2-3 años", "3-5 años", "5+ años",
+            "Terneros < 1 año", "1-2 años", "2-3 años", "3+ años"
+        ],
+        'Sexo': ['Hembra'] * len(cols_hemb) + ['Macho'] * len(cols_mach),
+        'Poblacion': pd.concat([data_hemb, data_mach])
+    })
+    
+    # Asignar valores negativos a Machos para la visualización de pirámide
+    piramide_df.loc[piramide_df['Sexo'] == 'Macho', 'Poblacion'] = piramide_df['Poblacion'] * -1
+    
+    # Generar Pirámide (usando go.Figure ya que px.bar requiere un truco más complejo)
+    fig_piramide = go.Figure()
+    
+    # Hembras (Positivo)
+    fig_piramide.add_trace(go.Bar(
+        y=piramide_df[piramide_df['Sexo'] == 'Hembra']['Edad'].tolist(),
+        x=piramide_df[piramide_df['Sexo'] == 'Hembra']['Poblacion'].tolist(),
+        orientation='h',
+        name='Hembras',
+        marker_color='#FF88AA' # Rosa
+    ))
+    
+    # Machos (Negativo)
+    fig_piramide.add_trace(go.Bar(
+        y=piramide_df[piramide_df['Sexo'] == 'Macho']['Edad'].tolist(),
+        x=piramide_df[piramide_df['Sexo'] == 'Macho']['Poblacion'].tolist(),
+        orientation='h',
+        name='Machos',
+        marker_color='#0088FF' # Azul
+    ))
+    
+    # Configuración de layout
+    fig_piramide.update_layout(
+        title='Pirámide de Edad y Sexo del Hato',
+        barmode='relative',
+        xaxis=dict(
+            tickvals=[-1000, -500, 0, 500, 1000], # Ajusta estos valores al rango real de tu población
+            ticktext=['1K', '500', '0', '500', '1K'], # Etiquetas (simétricas)
+            title='Población',
+            range=[-max(piramide_df['Poblacion'].abs())*1.1, max(piramide_df['Poblacion'].abs())*1.1] # Rango dinámico
+        ),
+        height=600
+    )
+    st.plotly_chart(fig_piramide, use_container_width=True)
+    
+    st.markdown("---")
+    st.subheader("2. Distribución de Población Bovina por Municipio")
+    
+    # Gráfico de Barras Municipios (El código que ya tenías)
+    top_munis = df_filtered.groupby('MUNICIPIO')['TOTAL_BOVINOS'].sum().sort_values(ascending=False)
+    # Convertimos a DataFrame para que Plotly funcione bien con la columna 'índice'
+    top_munis_df = top_munis.reset_index(name='Población Bovina') 
+    
+    fig_bar = px.bar(
+        top_munis_df, 
+        x='Población Bovina', 
+        y='MUNICIPIO', 
+        orientation='h', 
+        title="Top Municipios por Población Bovina",
+        color='Población Bovina',
+        color_continuous_scale=px.colors.sequential.Viridis
+    )
+    fig_bar.update_layout(yaxis={'categoryorder':'total ascending'})
     st.plotly_chart(fig_bar, use_container_width=True)
 
 with tab3:
